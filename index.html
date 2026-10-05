@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>India Forecast Blend</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#eef2f7; --surface:#ffffff; --line:#d7e0ea; --ink:#101d2e; --muted:#57697d;
+  --primary:#0b57d0; --primary-dark:#083f99; --primary-tint:#e6f0fe;
+  --green:#0e8a4b; --green-dark:#0a6b3a; --green-tint:#e3f6ea;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+  background:linear-gradient(135deg, var(--bg) 0%, var(--green-tint) 100%);
+  font-family:"IBM Plex Sans",system-ui,sans-serif; color:var(--ink); padding:2rem;
+}
+.wrap{max-width:860px; width:100%}
+h1{font-family:"Sora",sans-serif; font-weight:800; font-size:1.9rem; letter-spacing:-.015em; margin:0 0 .4rem}
+p.lead{color:var(--muted); font-size:1rem; margin:0 0 2.2rem; max-width:62ch}
+.cards{display:grid; grid-template-columns:1fr 1fr; gap:1.1rem}
+@media (max-width:640px){.cards{grid-template-columns:1fr}}
+a.card{
+  display:block; background:var(--surface); border:1px solid var(--line); border-radius:12px;
+  padding:1.5rem 1.6rem; text-decoration:none; color:var(--ink); border-top:4px solid var(--primary);
+  transition:transform .12s;
+}
+a.card:nth-child(2){border-top-color:var(--green)}
+a.card:hover{transform:translateY(-2px)}
+a.card h2{font-family:"Sora",sans-serif; font-size:1.1rem; font-weight:700; margin:0 0 .5rem}
+a.card p{font-size:.88rem; color:var(--muted); margin:0; line-height:1.5}
+a.card .go{display:inline-block; margin-top:1rem; font-size:.82rem; font-weight:600; color:var(--primary-dark)}
+a.card:nth-child(2) .go{color:var(--green-dark)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Hybrid AI-NWP Forecast Blending System</h1>
+  <p class="lead">Adaptive multi-model forecast blending across 53 stations in 7 Indian climate zones, combining GFS, ICON, and AIFS. Choose a view below.</p>
+  <div class="cards">
+    <a class="card" href="dashboard.html">
+      <h2>Operations Dashboard</h2>
+      <p>Full technical view: weight maps, model comparison charts, skill tables, and the Confidence Index, built for forecasters and technical reviewers.</p>
+      <span class="go">Open operations view &rarr;</span>
+    </a>
+    <a class="card" href="dashboard_public.html">
+      <h2>Public Dashboard</h2>
+      <p>Plain-language forecasts with city search and automatic location detection, built for everyday use.</p>
+      <span class="go">Open public view &rarr;</span>
+    </a>
+  </div>
+</div>
+</body>
+</html>

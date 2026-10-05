@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hybrid AI-NWP Multi-Model Forecast Blending System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f1f7fc; --surface:#fff; --surface-2:#f5f9fd; --line:#dbe7f1; --line-strong:#b9cfe2;
+  --ink:#12263a; --muted:#587086;
+  --primary:#0f5fa8; --primary-dark:#0a3f73; --primary-tint:#e2effa;
+  --accent:#e8912d; --accent-tint:#fdf0dc;
+  --green:#13804f; --green-tint:#def4e8; --amber:#a86a06; --amber-tint:#fcefd3; --red:#c0392b; --red-tint:#fce6e3;
+  --gfs:#e07a1f; --icon-model:#1f6fd1; --aifs:#12a187;
+  --shadow:0 8px 26px -14px rgba(15,95,168,.35);
+}
+*{box-sizing:border-box}
+body{margin:0; background:var(--bg); color:var(--ink); font-family:"Manrope",system-ui,sans-serif; font-size:15px; line-height:1.6}
+.mono{font-family:"IBM Plex Mono",ui-monospace,monospace}
+.ic{width:20px; height:20px; flex:0 0 auto}
+
+.hero{position:relative; overflow:hidden; background:linear-gradient(115deg,#d3eaf9 0%,#e9f4fb 48%,#fff1d6 100%); border-bottom:1px solid var(--line)}
+.hero-art{position:absolute; right:0; top:0; height:100%; width:64%}
+.hero-inner{position:relative; max-width:1400px; margin:0 auto; padding:2.3rem 1.75rem 2rem}
+.hero h1{font-family:"Fraunces",Georgia,serif; font-weight:600; font-size:clamp(1.75rem,3.3vw,2.6rem); line-height:1.1; letter-spacing:-.012em; margin:0 0 .7rem; max-width:19ch}
+.hero p{max-width:56ch; color:#33506a; margin:0 0 1.2rem; font-size:.93rem}
+.hero-meta{display:flex; gap:.6rem; flex-wrap:wrap}
+.hero-meta span{background:rgba(255,255,255,.85); border:1px solid var(--line); border-radius:999px; padding:.3rem .85rem; font-family:"IBM Plex Mono",monospace; font-size:.72rem; color:var(--primary-dark)}
+@media (max-width:700px){.hero-art{opacity:.35; width:100%}}
+
+.app{display:grid; grid-template-columns:244px 1fr; gap:1.5rem; max-width:1400px; margin:0 auto; padding:1.25rem 1.25rem 0}
+@media (max-width:900px){.app{grid-template-columns:1fr; padding:1rem}}
+.sidebar{background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:1.1rem .9rem; position:sticky; top:1rem; align-self:start; box-shadow:var(--shadow)}
+@media (max-width:900px){.sidebar{position:static}}
+.sidebar-label{font-family:"Fraunces",serif; font-size:1rem; font-weight:600; color:var(--primary-dark); margin:0 0 .7rem .5rem}
+nav.tabs{display:flex; flex-direction:column; gap:.2rem; margin-bottom:1.3rem}
+@media (max-width:900px){nav.tabs{flex-direction:row; overflow-x:auto}}
+nav.tabs button{display:flex; align-items:center; gap:.65rem; cursor:pointer; padding:.62rem .8rem; border:0; background:none; border-radius:12px; font:600 .87rem "Manrope",sans-serif; color:var(--muted); white-space:nowrap; text-align:left; transition:background .15s,color .15s}
+nav.tabs button:hover{background:var(--surface-2); color:var(--ink)}
+nav.tabs button:focus-visible{outline:2px solid var(--primary); outline-offset:1px}
+nav.tabs button.active{background:var(--primary); color:#fff}
+.status{padding-top:1rem; border-top:1px dashed var(--line-strong); font-family:"IBM Plex Mono",monospace; font-size:.67rem; color:var(--muted)}
+.status .row{display:flex; align-items:center; gap:.45rem; margin-bottom:.4rem}
+.status .dot{display:inline-block; width:8px; height:8px; border-radius:50%; flex:0 0 auto}
+.dot.ok{background:var(--green); box-shadow:0 0 0 3px var(--green-tint)}
+.dot.bad{background:var(--red); box-shadow:0 0 0 3px var(--red-tint)}
+
+main{padding:.4rem .5rem 4rem; min-width:0}
+h1.page-title{font-family:"Fraunces",Georgia,serif; font-size:1.9rem; font-weight:600; margin:0 0 .25rem; letter-spacing:-.01em}
+.subtitle{color:var(--muted); font-size:.92rem; margin:0 0 1.5rem; max-width:68ch}
+.panel{display:none}
+.panel.active{display:block}
+
+.kpis{display:grid; grid-template-columns:repeat(auto-fit,minmax(165px,1fr)); gap:.9rem; margin-bottom:1.6rem}
+.kpi{background:var(--surface); border:1px solid var(--line); border-radius:16px; padding:1rem 1.05rem; box-shadow:var(--shadow)}
+.kpi-ic{display:inline-flex; width:38px; height:38px; border-radius:12px; align-items:center; justify-content:center; background:var(--primary-tint); color:var(--primary); margin-bottom:.6rem}
+.kpi:nth-child(5n+2) .kpi-ic{background:#dff5ef; color:var(--aifs)}
+.kpi:nth-child(5n+3) .kpi-ic{background:var(--accent-tint); color:var(--gfs)}
+.kpi:nth-child(5n+4) .kpi-ic{background:var(--red-tint); color:var(--red)}
+.kpi:nth-child(5n+5) .kpi-ic{background:var(--green-tint); color:var(--green)}
+.kpi .val{font-family:"Fraunces",serif; font-size:2rem; font-weight:600; line-height:1.1; color:var(--primary-dark); font-variant-numeric:lining-nums tabular-nums}
+.kpi .lbl{font-size:.78rem; color:var(--muted); margin-top:.2rem; font-weight:600}
+
+.section{background:var(--surface); border:1px solid var(--line); border-radius:18px; padding:1.35rem 1.5rem; margin-bottom:1.4rem; box-shadow:var(--shadow)}
+.section h2{font-family:"Fraunces",Georgia,serif; font-size:1.2rem; font-weight:600; margin:0 0 1rem; display:flex; align-items:baseline; justify-content:space-between; flex-wrap:wrap; gap:.4rem .8rem}
+.section h2 .desc{font-size:.78rem; font-weight:500; color:var(--muted); font-family:"Manrope",sans-serif}
+
+.mapwrap{overflow-x:auto; background:radial-gradient(circle at 30% 20%,#f4fafe,#dcedf8); border:1px solid var(--line); border-radius:14px; padding:.5rem}
+svg.indiamap{width:100%; max-width:660px; height:auto; display:block; margin:0 auto}
+.legend{display:flex; gap:1.3rem; flex-wrap:wrap; margin-top:1rem; font-size:.8rem; color:var(--muted); font-weight:500}
+.legend .sw{display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:.45rem; vertical-align:middle}
+
+.models{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:1rem}
+.model{display:flex; gap:.9rem; align-items:flex-start; padding:1rem; border-radius:14px; border:1px solid var(--line); background:var(--surface-2)}
+.model svg{width:52px; height:52px; flex:0 0 auto}
+.model h3{font-family:"Fraunces",serif; font-size:1.1rem; font-weight:600; margin:0 0 .15rem}
+.model p{margin:0; font-size:.82rem; color:var(--muted)}
+.model.gfs{border-left:5px solid var(--gfs)} .model.icon{border-left:5px solid var(--icon-model)} .model.aifs{border-left:5px solid var(--aifs)}
+
+.zones{display:grid; grid-template-columns:repeat(auto-fill,minmax(210px,1fr)); gap:1rem}
+.zone-card{border:1px solid var(--line); border-radius:14px; overflow:hidden; background:var(--surface)}
+.zone-card svg{display:block; width:100%; height:112px}
+.zc-body{padding:.75rem .9rem .9rem}
+.zc-body h3{font-family:"Fraunces",serif; font-size:.95rem; font-weight:600; margin:0 0 .5rem; line-height:1.25; min-height:2.4em}
+.zc-meta{display:flex; justify-content:space-between; align-items:center; gap:.5rem; font-size:.75rem; color:var(--muted); font-weight:600}
+
+.controls{display:flex; gap:.7rem; flex-wrap:wrap; margin-bottom:1rem}
+select{background:var(--surface-2); border:1px solid var(--line-strong); color:var(--ink); border-radius:999px; padding:.5rem 1rem; font:600 .85rem "Manrope",sans-serif}
+select:focus{outline:2px solid var(--primary); outline-offset:1px}
+
+table{width:100%; border-collapse:collapse; font-size:.84rem}
+th,td{text-align:left; padding:.6rem .75rem; border-bottom:1px solid var(--line)}
+th{background:var(--primary-tint); color:var(--primary-dark); font-weight:700; font-size:.76rem; white-space:nowrap; position:sticky; top:0}
+td.mono, th.mono{font-family:"IBM Plex Mono",monospace}
+tr:hover td{background:var(--surface-2)}
+.badge{display:inline-block; padding:.18rem .65rem; border-radius:999px; font-size:.72rem; font-weight:700}
+.badge.green{background:var(--green-tint); color:var(--green)}
+.badge.amber{background:var(--amber-tint); color:var(--amber)}
+.badge.red{background:var(--red-tint); color:var(--red)}
+.badge.none{background:var(--surface-2); color:var(--muted); font-weight:600}
+
+.empty{color:var(--muted); font-size:.88rem; padding:1.5rem; text-align:center}
+.chart-box{height:300px; background:linear-gradient(180deg,#fbfdff,#f1f7fc); border:1px solid var(--line); border-radius:14px; padding:.5rem}
+.note{font-size:.8rem; color:var(--muted); margin-top:.8rem; border-left:4px solid var(--accent); padding-left:.8rem}
+
+.methodology{display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:1rem}
+.method-item{padding:1rem; background:var(--surface-2); border:1px solid var(--line); border-radius:14px}
+.method-item .m-label{font-family:"Fraunces",serif; font-size:.95rem; font-weight:600; color:var(--primary-dark); margin-bottom:.3rem}
+.method-item .m-value{font-size:.85rem; font-weight:500}
+
+.errbox{background:var(--red-tint); border:1px solid #efb3ab; border-radius:16px; padding:1.3rem 1.5rem}
+.errbox h2{color:var(--red); margin:0 0 .6rem; font-family:"Fraunces",serif; font-size:1.15rem}
+.errbox pre{background:var(--surface); border:1px solid var(--line); padding:.8rem; border-radius:10px; font-size:.8rem; overflow-x:auto}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <svg class="hero-art" viewBox="0 0 560 240" preserveAspectRatio="xMaxYMid slice" aria-hidden="true">
+    <circle cx="440" cy="68" r="78" fill="#ffc15e" opacity=".22"/><circle cx="440" cy="68" r="46" fill="#ffc15e"/>
+    <g fill="#fff"><ellipse cx="330" cy="112" rx="58" ry="20"/><circle cx="308" cy="98" r="22"/><circle cx="350" cy="92" r="27"/></g>
+    <g stroke="#5aa9e0" stroke-width="3" stroke-linecap="round"><path d="M300 142l-6 18M322 144l-6 18M344 142l-6 18M366 144l-6 18"/></g>
+    <g fill="none" stroke="#2f86c9" stroke-width="3" stroke-linecap="round" opacity=".45"><path d="M30 196c60-14 120 12 180-4s70-6 90-2"/><path d="M110 220c50-10 100 8 150-2"/></g>
+    <g fill="none" stroke="#9db9d1" stroke-width="2" stroke-dasharray="4 5"><path d="M392 192C430 192 440 160 484 150"/><path d="M440 214C470 214 480 170 490 156"/><path d="M488 190C500 190 502 168 498 158"/></g>
+    <circle cx="384" cy="192" r="15" fill="#e07a1f"/><circle cx="436" cy="214" r="15" fill="#1f6fd1"/><circle cx="486" cy="192" r="15" fill="#12a187"/>
+    <circle cx="500" cy="140" r="30" fill="#fff" stroke="#0f5fa8" stroke-width="4"/><circle cx="500" cy="140" r="14" fill="#e8912d"/>
+  </svg>
+  <div class="hero-inner">
+    <h1>Hybrid AI-NWP Multi-Model Forecast Blending System</h1>
+    <p>Adaptive multi-model blending across 53 stations in 7 Indian climate zones. Source models: GFS (NOAA), ICON (DWD), AIFS (ECMWF).</p>
+    <div class="hero-meta"><span id="mastheadTime">Dashboard loaded: -</span><span id="mastheadCoverage">Coverage: -</span></div>
+  </div>
+</header>
+
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-label">Sections</div>
+    <nav class="tabs">
+      <button data-tab="overview" class="active">Overview</button>
+      <button data-tab="explorer">Forecast Explorer</button>
+      <button data-tab="weights">Model Weight Map</button>
+      <button data-tab="extremes">Extreme Events</button>
+      <button data-tab="confidence">Confidence Index</button>
+    </nav>
+    <div class="status" id="status">
+      <div class="row"><span class="dot bad" id="dot-blend"></span>blended_forecast.csv</div>
+      <div class="row"><span class="dot bad" id="dot-weights"></span>weights_table.csv</div>
+      <div class="row"><span class="dot bad" id="dot-extremes"></span>daily_extremes_full.csv</div>
+      <div class="row"><span class="dot bad" id="dot-conf"></span>confidence_index.csv</div>
+    </div>
+  </aside>
+
+  <main>
+
+    <div id="loadError" class="errbox" style="display:none">
+      <h2 id="loadErrorTitle">Data files not found</h2>
+      <p style="color:var(--muted); font-size:.85rem" id="loadErrorBody">
+        This page expects to be served from the project root with a running pipeline. Run it like this:
+      </p>
+      <pre class="mono" id="loadErrorHint">cd hybrid_forecast
+python -m http.server 8000</pre>
+      <p style="color:var(--muted); font-size:.85rem" id="loadErrorFooter">Then open <span class="mono">http://localhost:8000/dashboard.html</span>. Opening this file directly from disk will not work, because browsers block local file reads for security.</p>
+    </div>
+
+    <div id="appContent" style="display:none">
+
+    <section class="panel active" id="panel-overview">
+      <h1 class="page-title">Overview</h1>
+      <p class="subtitle">Summary statistics for the current blended forecast, computed directly from the pipeline output below.</p>
+
+      <div class="kpis" id="kpiRow"></div>
+
+      <div class="section">
+        <h2>Confidence by zone, current forecast cycle <span class="desc">agreement level across the three source models</span></h2>
+        <div class="mapwrap"><svg class="indiamap" id="overviewMap" viewBox="0 0 820 570"></svg></div>
+        <div class="legend">
+          <span><span class="sw" style="background:var(--green)"></span>High: models agree, blend is reliable</span>
+          <span><span class="sw" style="background:var(--amber)"></span>Medium: some disagreement between models</span>
+          <span><span class="sw" style="background:var(--red)"></span>Low: models diverge, recommend manual review</span>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>The three source models <span class="desc">each one leads where its track record is strongest</span></h2>
+        <div class="models">
+          <div class="model gfs"><svg viewBox="0 0 52 52"><circle cx="26" cy="26" r="21" fill="#fdeedd" stroke="#e07a1f" stroke-width="2.5"/><ellipse cx="26" cy="26" rx="9" ry="21" fill="none" stroke="#e07a1f" stroke-width="2"/><path d="M5 26h42M9 15h34M9 37h34" stroke="#e07a1f" stroke-width="2"/></svg><div><h3>GFS</h3><p>NOAA's global physics model, run on a latitude-longitude grid.</p></div></div>
+          <div class="model icon"><svg viewBox="0 0 52 52"><path d="M26 4l19 11v22L26 48 7 37V15z" fill="#e4effc" stroke="#1f6fd1" stroke-width="2.5" stroke-linejoin="round"/><path d="M26 4v44M7 15l38 22M45 15L7 37" stroke="#1f6fd1" stroke-width="1.8"/></svg><div><h3>ICON</h3><p>DWD's global physics model, built on an icosahedral mesh.</p></div></div>
+          <div class="model aifs"><svg viewBox="0 0 52 52"><g stroke="#12a187" stroke-width="2"><path d="M10 14L26 26 10 38M26 26L42 14M26 26L42 38M10 14L42 14M10 38L42 38"/></g><g fill="#dff5ef" stroke="#12a187" stroke-width="2.5"><circle cx="10" cy="14" r="5"/><circle cx="10" cy="38" r="5"/><circle cx="26" cy="26" r="6"/><circle cx="42" cy="14" r="5"/><circle cx="42" cy="38" r="5"/></g></svg><div><h3>AIFS</h3><p>ECMWF's machine-learning model, trained on decades of analyses.</p></div></div>
+        </div>
+      </div>
+
+      <div class="section">
+        <h2>Climate zones <span class="desc">station count and average confidence for each zone</span></h2>
+        <div class="zones" id="zoneGallery"></div>
+      </div>
+
+      <div class="section">
+        <h2>Data sources and methodology</h2>
+        <div class="methodology">
+          <div class="method-item"><div class="m-label">Physical NWP</div><div class="m-value">GFS (NOAA) and ICON (DWD), via Open-Meteo</div></div>
+          <div class="method-item"><div class="m-label">AI model</div><div class="m-value">AIFS (ECMWF), operational since February 2025</div></div>
+          <div class="method-item"><div class="m-label">Blending method</div><div class="m-value">Inverse-error weighting per zone, lead time, and variable</div></div>
+          <div class="method-item"><div class="m-label">Extreme thresholds</div><div class="m-value">IMD-aligned: heavy rain 64.5mm/24h, heat wave departure 4.5C</div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-explorer">
+      <h1 class="page-title">Forecast Explorer</h1>
+      <p class="subtitle">Blended forecast plotted against each individual source model, by station and lead time.</p>
+
+      <div class="section">
+        <div class="controls">
+          <select id="expZone"></select>
+          <select id="expPoint"></select>
+          <select id="expVar">
+            <option value="temperature_2m">Temperature (C)</option>
+            <option value="precipitation">Precipitation (mm/h)</option>
+            <option value="wind_speed_10m">Wind speed (km/h)</option>
+          </select>
+        </div>
+        <div class="chart-box"><svg id="explorerChart" width="100%" height="100%"></svg></div>
+        <p class="note">Solid line: inverse-error weighted blend. Dashed lines: each raw source model. The blend does not simply average the three lines; it leans toward whichever model has the better historical track record for this zone, lead time, and variable.</p>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-weights">
+      <h1 class="page-title">Model Weight Map</h1>
+      <p class="subtitle">Which model is weighted most heavily by location. This is the adaptive weighting mechanism, shown directly.</p>
+
+      <div class="section">
+        <div class="controls">
+          <select id="weightLead"></select>
+          <select id="weightVar">
+            <option value="temperature_2m">Temperature</option>
+            <option value="precipitation">Precipitation</option>
+            <option value="wind_speed_10m">Wind speed</option>
+          </select>
+        </div>
+        <div class="mapwrap"><svg class="indiamap" id="weightMap" viewBox="0 0 820 570"></svg></div>
+        <div class="legend">
+          <span><span class="sw" style="background:var(--gfs)"></span>GFS: NOAA, physical model</span>
+          <span><span class="sw" style="background:var(--icon-model)"></span>ICON: DWD, physical model</span>
+          <span><span class="sw" style="background:var(--aifs)"></span>AIFS: ECMWF, AI model</span>
+        </div>
+        <p class="note">Marker size indicates weight strength. A larger marker means that model's forecast dominates the blend more strongly at that station.</p>
+      </div>
+
+      <div class="section">
+        <h2>Weight values <span class="desc">exact figures behind the map above</span></h2>
+        <div style="max-height:360px; overflow-y:auto">
+          <table id="weightTable"><thead></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-extremes">
+      <h1 class="page-title">Extreme Weather Events</h1>
+      <p class="subtitle">Heavy rain, heat wave, and high wind days, flagged against IMD-aligned thresholds.</p>
+
+      <div class="kpis" id="extremeKpiRow"></div>
+
+      <div class="section">
+        <h2>Flagged events <span class="desc">from the blended forecast, with cross-model agreement</span></h2>
+        <div style="max-height:480px; overflow-y:auto">
+          <table id="extremeTable"><thead></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel" id="panel-confidence">
+      <h1 class="page-title">Confidence Index</h1>
+      <p class="subtitle">Cross-model disagreement, converted into a per-zone trust signal for the blended forecast.</p>
+
+      <div class="section">
+        <h2>Confidence versus lead time <span class="desc">do the three models agree less at longer lead times</span></h2>
+        <div class="chart-box"><svg id="confidenceLeadChart" width="100%" height="100%"></svg></div>
+      </div>
+
+      <div class="section">
+        <h2>Confidence by zone and day <span class="desc">overall confidence score, scale of 0 to 100</span></h2>
+        <div style="max-height:420px; overflow-y:auto">
+          <table id="confidenceTable"><thead></thead><tbody></tbody></table>
+        </div>
+      </div>
+    </section>
+
+    </div>
+  </main>
+</div>
+
+<script>
+const LEVEL_COLOR = { green: "#13804f", amber: "#d08a12", red: "#c0392b", none: "#8a99ab" };
+const MODEL_COLOR = { gfs_global: "#e07a1f", icon_global: "#1f6fd1", ecmwf_aifs025_single: "#12a187" };
+const MODEL_LABEL = { gfs_global: "GFS", icon_global: "ICON", ecmwf_aifs025_single: "AIFS" };
+
+const ZONES_META = {"himalayan": {"label": "Himalayan and NE Hills", "color": "#0f5fa8"}, "indo_gangetic": {"label": "Indo-Gangetic Plain", "color": "#a86a06"}, "western_ghats_coast": {"label": "Western Ghats and West Coast", "color": "#0e8a4b"}, "deccan_plateau": {"label": "Deccan Plateau, Central India", "color": "#c2540a"}, "east_coast": {"label": "East Coast, Bay of Bengal", "color": "#6b4fbf"}, "peninsular_south": {"label": "Peninsular South, Tamil Nadu Interior", "color": "#0e8a6b"}, "arid_west": {"label": "Arid West, Rajasthan and Kutch", "color": "#b5720a"}};
+const POINTS = [{"point_id": "himalayan:srinagar", "zone": "himalayan", "name": "Srinagar", "lat": 34.08, "lon": 74.8}, {"point_id": "himalayan:shimla", "zone": "himalayan", "name": "Shimla", "lat": 31.1, "lon": 77.17}, {"point_id": "himalayan:dehradun", "zone": "himalayan", "name": "Dehradun", "lat": 30.32, "lon": 78.03}, {"point_id": "himalayan:gangtok", "zone": "himalayan", "name": "Gangtok", "lat": 27.33, "lon": 88.61}, {"point_id": "himalayan:shillong", "zone": "himalayan", "name": "Shillong", "lat": 25.58, "lon": 91.89}, {"point_id": "himalayan:itanagar", "zone": "himalayan", "name": "Itanagar", "lat": 27.1, "lon": 93.62}, {"point_id": "himalayan:leh", "zone": "himalayan", "name": "Leh", "lat": 34.16, "lon": 77.58}, {"point_id": "himalayan:darjeeling", "zone": "himalayan", "name": "Darjeeling", "lat": 27.04, "lon": 88.26}, {"point_id": "indo_gangetic:delhi", "zone": "indo_gangetic", "name": "Delhi", "lat": 28.61, "lon": 77.21}, {"point_id": "indo_gangetic:lucknow", "zone": "indo_gangetic", "name": "Lucknow", "lat": 26.85, "lon": 80.95}, {"point_id": "indo_gangetic:patna", "zone": "indo_gangetic", "name": "Patna", "lat": 25.59, "lon": 85.14}, {"point_id": "indo_gangetic:amritsar", "zone": "indo_gangetic", "name": "Amritsar", "lat": 31.63, "lon": 74.87}, {"point_id": "indo_gangetic:kanpur", "zone": "indo_gangetic", "name": "Kanpur", "lat": 26.45, "lon": 80.35}, {"point_id": "indo_gangetic:varanasi", "zone": "indo_gangetic", "name": "Varanasi", "lat": 25.32, "lon": 83.01}, {"point_id": "indo_gangetic:chandigarh", "zone": "indo_gangetic", "name": "Chandigarh", "lat": 30.73, "lon": 76.78}, {"point_id": "indo_gangetic:jaipur", "zone": "indo_gangetic", "name": "Jaipur", "lat": 26.91, "lon": 75.79}, {"point_id": "indo_gangetic:agra", "zone": "indo_gangetic", "name": "Agra", "lat": 27.18, "lon": 78.02}, {"point_id": "indo_gangetic:bareilly", "zone": "indo_gangetic", "name": "Bareilly", "lat": 28.35, "lon": 79.43}, {"point_id": "western_ghats_coast:mumbai", "zone": "western_ghats_coast", "name": "Mumbai", "lat": 19.08, "lon": 72.88}, {"point_id": "western_ghats_coast:pune", "zone": "western_ghats_coast", "name": "Pune", "lat": 18.52, "lon": 73.86}, {"point_id": "western_ghats_coast:goa", "zone": "western_ghats_coast", "name": "Goa", "lat": 15.3, "lon": 74.12}, {"point_id": "western_ghats_coast:mangalore", "zone": "western_ghats_coast", "name": "Mangalore", "lat": 12.91, "lon": 74.86}, {"point_id": "western_ghats_coast:kochi", "zone": "western_ghats_coast", "name": "Kochi", "lat": 9.93, "lon": 76.27}, {"point_id": "western_ghats_coast:thiruvananthapuram", "zone": "western_ghats_coast", "name": "Thiruvananthapuram", "lat": 8.52, "lon": 76.94}, {"point_id": "western_ghats_coast:kozhikode", "zone": "western_ghats_coast", "name": "Kozhikode", "lat": 11.26, "lon": 75.78}, {"point_id": "western_ghats_coast:ratnagiri", "zone": "western_ghats_coast", "name": "Ratnagiri", "lat": 16.99, "lon": 73.31}, {"point_id": "western_ghats_coast:coorg", "zone": "western_ghats_coast", "name": "Coorg", "lat": 12.42, "lon": 75.74}, {"point_id": "deccan_plateau:nagpur", "zone": "deccan_plateau", "name": "Nagpur", "lat": 21.15, "lon": 79.09}, {"point_id": "deccan_plateau:hyderabad", "zone": "deccan_plateau", "name": "Hyderabad", "lat": 17.39, "lon": 78.49}, {"point_id": "deccan_plateau:bhopal", "zone": "deccan_plateau", "name": "Bhopal", "lat": 23.26, "lon": 77.41}, {"point_id": "deccan_plateau:nashik", "zone": "deccan_plateau", "name": "Nashik", "lat": 20.0, "lon": 73.79}, {"point_id": "deccan_plateau:raipur", "zone": "deccan_plateau", "name": "Raipur", "lat": 21.25, "lon": 81.63}, {"point_id": "deccan_plateau:bengaluru", "zone": "deccan_plateau", "name": "Bengaluru", "lat": 12.97, "lon": 77.59}, {"point_id": "deccan_plateau:indore", "zone": "deccan_plateau", "name": "Indore", "lat": 22.72, "lon": 75.86}, {"point_id": "deccan_plateau:aurangabad", "zone": "deccan_plateau", "name": "Aurangabad", "lat": 19.88, "lon": 75.34}, {"point_id": "east_coast:chennai", "zone": "east_coast", "name": "Chennai", "lat": 13.08, "lon": 80.27}, {"point_id": "east_coast:visakhapatnam", "zone": "east_coast", "name": "Visakhapatnam", "lat": 17.69, "lon": 83.22}, {"point_id": "east_coast:bhubaneswar", "zone": "east_coast", "name": "Bhubaneswar", "lat": 20.3, "lon": 85.82}, {"point_id": "east_coast:kolkata", "zone": "east_coast", "name": "Kolkata", "lat": 22.57, "lon": 88.36}, {"point_id": "east_coast:puducherry", "zone": "east_coast", "name": "Puducherry", "lat": 11.94, "lon": 79.83}, {"point_id": "east_coast:nellore", "zone": "east_coast", "name": "Nellore", "lat": 14.44, "lon": 79.99}, {"point_id": "east_coast:cuttack", "zone": "east_coast", "name": "Cuttack", "lat": 20.46, "lon": 85.88}, {"point_id": "peninsular_south:madurai", "zone": "peninsular_south", "name": "Madurai", "lat": 9.93, "lon": 78.12}, {"point_id": "peninsular_south:coimbatore", "zone": "peninsular_south", "name": "Coimbatore", "lat": 11.02, "lon": 76.97}, {"point_id": "peninsular_south:tiruchirappalli", "zone": "peninsular_south", "name": "Tiruchirappalli", "lat": 10.79, "lon": 78.7}, {"point_id": "peninsular_south:salem", "zone": "peninsular_south", "name": "Salem", "lat": 11.66, "lon": 78.15}, {"point_id": "peninsular_south:vellore", "zone": "peninsular_south", "name": "Vellore", "lat": 12.92, "lon": 79.13}, {"point_id": "peninsular_south:mysuru", "zone": "peninsular_south", "name": "Mysuru", "lat": 12.3, "lon": 76.65}, {"point_id": "arid_west:jodhpur", "zone": "arid_west", "name": "Jodhpur", "lat": 26.29, "lon": 73.02}, {"point_id": "arid_west:bikaner", "zone": "arid_west", "name": "Bikaner", "lat": 28.02, "lon": 73.31}, {"point_id": "arid_west:jaisalmer", "zone": "arid_west", "name": "Jaisalmer", "lat": 26.91, "lon": 70.92}, {"point_id": "arid_west:bhuj", "zone": "arid_west", "name": "Bhuj", "lat": 23.25, "lon": 69.67}, {"point_id": "arid_west:ahmedabad", "zone": "arid_west", "name": "Ahmedabad", "lat": 23.03, "lon": 72.58}];
+
+function projectLatLon(lat, lon) {
+  const x = (lon - 68) / (98 - 68) * 640 + 40;
+  const y = (38 - lat) / (38 - 6) * 520 + 30;
+  return [x, y];
+}
+function zoneCentroid(zoneKey) {
+  const pts = POINTS.filter(p => p.zone === zoneKey);
+  const lat = pts.reduce((s, p) => s + p.lat, 0) / pts.length;
+  const lon = pts.reduce((s, p) => s + p.lon, 0) / pts.length;
+  return [lat, lon];
+}
+
+function toDate(s) {
+  if (typeof s !== "string") return new Date(s);
+  return new Date(s.includes("T") ? s : s.replace(" ", "T"));
+}
+
+function parseCSVLine(line) {
+  const out = [];
+  let cur = "", inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQuotes) {
+      if (c === '"' && line[i + 1] === '"') { cur += '"'; i++; }
+      else if (c === '"') { inQuotes = false; }
+      else { cur += c; }
+    } else {
+      if (c === '"') inQuotes = true;
+      else if (c === ',') { out.push(cur); cur = ""; }
+      else cur += c;
+    }
+  }
+  out.push(cur);
+  return out;
+}
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.length > 0);
+  if (!lines.length) return [];
+  const headers = parseCSVLine(lines[0]);
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const vals = parseCSVLine(lines[i]);
+    const row = {};
+    headers.forEach((h, j) => {
+      const raw = vals[j];
+      if (raw === undefined || raw === "") { row[h] = null; return; }
+      const num = Number(raw);
+      row[h] = (raw.trim() !== "" && !isNaN(num)) ? num : raw;
+    });
+    rows.push(row);
+  }
+  return rows;
+}
+
+function drawLineChart(svgEl, { labels, datasets, yMin, yMax }) {
+  const W = svgEl.clientWidth || 640, H = svgEl.clientHeight || 300;
+  const padL = 42, padR = 16, padT = 16, padB = 34;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+
+  const allVals = datasets.flatMap(d => d.data.filter(v => v !== null && v !== undefined && !isNaN(v)));
+  const dataMin = yMin !== undefined ? yMin : Math.min(...allVals);
+  const dataMax = yMax !== undefined ? yMax : Math.max(...allVals);
+  const range = (dataMax - dataMin) || 1;
+  const pad = range * 0.1;
+  const lo = yMin !== undefined ? yMin : dataMin - pad;
+  const hi = yMax !== undefined ? yMax : dataMax + pad;
+
+  const xStep = labels.length > 1 ? plotW / (labels.length - 1) : plotW;
+  const xAt = i => padL + i * xStep;
+  const yAt = v => padT + plotH - ((v - lo) / (hi - lo)) * plotH;
+
+  let svg = "";
+  const ticks = 5;
+  for (let t = 0; t <= ticks; t++) {
+    const v = lo + (hi - lo) * (t / ticks);
+    const y = yAt(v);
+    svg += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W - padR}" y2="${y.toFixed(1)}" stroke="#dbe7f1" stroke-width="1"/>`;
+    svg += `<text x="${padL - 8}" y="${(y + 3).toFixed(1)}" font-family="IBM Plex Mono, monospace" font-size="10" fill="#57697d" text-anchor="end">${v.toFixed(0)}</text>`;
+  }
+  const xLabelStep = Math.max(1, Math.ceil(labels.length / 10));
+  labels.forEach((lab, i) => {
+    if (i % xLabelStep !== 0 && i !== labels.length - 1) return;
+    svg += `<text x="${xAt(i).toFixed(1)}" y="${H - padB + 16}" font-family="IBM Plex Mono, monospace" font-size="10" fill="#57697d" text-anchor="middle">${lab}</text>`;
+  });
+
+  datasets.forEach(ds => {
+    const pts = ds.data.map((v, i) => [xAt(i), (v === null || v === undefined || isNaN(v)) ? null : yAt(v)]);
+    let path = "", started = false;
+    pts.forEach(([x, y]) => {
+      if (y === null) { started = false; return; }
+      path += (started ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1) + " ";
+      started = true;
+    });
+    const dash = ds.dashed ? ' stroke-dasharray="4,3"' : "";
+    svg += `<path d="${path}" fill="none" stroke="${ds.color}" stroke-width="${ds.width || 2}"${dash}/>`;
+    if (ds.showPoints) {
+      pts.forEach(([x, y]) => { if (y !== null) svg += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3" fill="${ds.color}"/>`; });
+    }
+  });
+
+  let lx = padL;
+  const ly = 10;
+  let legendSvg = "";
+  datasets.forEach(ds => {
+    legendSvg += `<line x1="${lx}" y1="${ly}" x2="${lx + 16}" y2="${ly}" stroke="${ds.color}" stroke-width="2.5" ${ds.dashed ? 'stroke-dasharray="4,3"' : ""}/>`;
+    legendSvg += `<text x="${lx + 21}" y="${ly + 4}" font-family="Manrope, sans-serif" font-size="11" fill="#12263a">${ds.label}</text>`;
+    lx += ds.label.length * 6.5 + 40;
+  });
+
+  svgEl.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svgEl.innerHTML = `<g transform="translate(0,20)">${legendSvg}</g>` + svg;
+}
+
+async function loadCSV(path) {
+  const res = await fetch(path);
+  if (!res.ok) throw new Error(`Failed to fetch ${path}`);
+  const text = await res.text();
+  return parseCSV(text);
+}
+
+let DATA = { blend: [], weights: [], extremesDaily: [], confidence: [] };
+
+async function boot() {
+  document.getElementById("mastheadTime").textContent = "Dashboard loaded: " + new Date().toLocaleString();
+  try {
+    const [blend, weights, extremesDaily, confidence] = await Promise.all([
+      loadCSV("data/processed/blended_forecast.csv").then(d => { document.getElementById("dot-blend").className = "dot ok"; return d; }),
+      loadCSV("data/processed/weights_table.csv").then(d => { document.getElementById("dot-weights").className = "dot ok"; return d; }),
+      loadCSV("data/processed/daily_extremes_full.csv").then(d => { document.getElementById("dot-extremes").className = "dot ok"; return d; }),
+      loadCSV("data/processed/confidence_index.csv").then(d => { document.getElementById("dot-conf").className = "dot ok"; return d; }),
+    ]);
+    DATA = { blend, weights, extremesDaily, confidence };
+    document.getElementById("appContent").style.display = "block";
+    const pointCount = new Set(blend.map(r => r.point_id)).size;
+    const zoneCount = new Set(blend.map(r => r.zone)).size;
+    document.getElementById("mastheadCoverage").textContent = `Coverage: ${pointCount} stations, ${zoneCount} zones`;
+    initOverview();
+    renderZoneGallery();
+    initExplorer();
+    initWeights();
+    initExtremes();
+    initConfidence();
+  } catch (err) {
+    console.error(err);
+    document.getElementById("loadError").style.display = "block";
+    document.getElementById("loadErrorTitle").textContent = "Dashboard error";
+    document.getElementById("loadErrorBody").innerHTML =
+      `The data files loaded successfully, but something in the page crashed while processing them. ` +
+      `The exact error is below. Check the browser console (F12) for the full stack trace.`;
+    document.getElementById("loadErrorHint").textContent = `${err.name}: ${err.message}`;
+    document.getElementById("loadErrorFooter").textContent =
+      "If reporting this, copy the message above along with what appears in the browser console.";
+  }
+}
+
+document.querySelectorAll("nav.tabs button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    document.querySelectorAll("nav.tabs button").forEach(b => b.classList.remove("active"));
+    document.querySelectorAll(".panel").forEach(p => p.classList.remove("active"));
+    btn.classList.add("active");
+    document.getElementById("panel-" + btn.dataset.tab).classList.add("active");
+  });
+});
+
+function initOverview() {
+  const zones = new Set(DATA.blend.map(r => r.zone));
+  const points = new Set(DATA.blend.map(r => r.point_id));
+  const models = new Set();
+  DATA.weights.forEach(r => models.add(r.model));
+  const eventCount = DATA.extremesDaily.filter(r =>
+    (r.rain_category && r.rain_category !== "none") ||
+    (r.heat_category && r.heat_category !== "none") ||
+    (r.wind_category && r.wind_category !== "none")
+  ).length;
+  const avgConf = DATA.confidence.reduce((s, r) => s + (r.overall_confidence || 0), 0) / (DATA.confidence.length || 1);
+
+  const kpis = [
+    { val: points.size, lbl: "stations covered" },
+    { val: zones.size, lbl: "climate zones" },
+    { val: models.size, lbl: "models blended" },
+    { val: eventCount, lbl: "extreme events flagged" },
+    { val: avgConf.toFixed(0), lbl: "average confidence, 0 to 100" },
+  ];
+  document.getElementById("kpiRow").innerHTML = kpis.map(k =>
+    `<div class="kpi"><span class="kpi-ic">${kpiIcon(k.lbl)}</span><div class="val">${k.val}</div><div class="lbl">${k.lbl}</div></div>`
+  ).join("");
+
+  const days = [...new Set(DATA.confidence.map(r => {
+    const d = toDate(r.valid_time);
+    d.setUTCHours(d.getUTCHours() - 3);
+    return d.toISOString().slice(0, 10);
+  }))].sort();
+  const targetDay = days[0];
+
+  const zoneConf = {};
+  DATA.confidence.forEach(r => {
+    const d = toDate(r.valid_time);
+    d.setUTCHours(d.getUTCHours() - 3);
+    const day = d.toISOString().slice(0, 10);
+    if (day !== targetDay) return;
+    if (!zoneConf[r.zone]) zoneConf[r.zone] = [];
+    zoneConf[r.zone].push(r.overall_confidence || 0);
+  });
+
+  const shapes = [];
+  Object.keys(ZONES_META).forEach(zoneKey => {
+    if (!zoneConf[zoneKey]) return;
+    const vals = zoneConf[zoneKey];
+    const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+    const level = avg >= 70 ? "green" : avg >= 40 ? "amber" : "red";
+    const [lat, lon] = zoneCentroid(zoneKey);
+    const [x, y] = projectLatLon(lat, lon);
+    shapes.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="42" fill="${LEVEL_COLOR[level]}" fill-opacity="0.85" stroke="#ffffff" stroke-width="1.5"/>
+      <text x="${x.toFixed(1)}" y="${(y+4).toFixed(1)}" font-family="IBM Plex Mono, monospace" font-size="14" font-weight="700" text-anchor="middle" fill="#ffffff">${avg.toFixed(0)}</text>
+      <text x="${x.toFixed(1)}" y="${(y+58).toFixed(1)}" font-family="Manrope, sans-serif" font-size="11" text-anchor="middle" fill="#57697d">${ZONES_META[zoneKey].label}</text>`);
+  });
+  document.getElementById("overviewMap").innerHTML = indiaBase() +
+    `<text x="20" y="20" font-family="IBM Plex Mono, monospace" font-size="11" fill="#57697d">${targetDay || ""}</text>` + shapes.join("");
+}
+
+function initExplorer() {
+  const zoneSel = document.getElementById("expZone");
+  const pointSel = document.getElementById("expPoint");
+  const varSel = document.getElementById("expVar");
+
+  const zones = [...new Set(POINTS.map(p => p.zone))];
+  zoneSel.innerHTML = zones.map(z => `<option value="${z}">${ZONES_META[z]?.label || z}</option>`).join("");
+
+  function refreshPoints() {
+    const z = zoneSel.value;
+    const pts = POINTS.filter(p => p.zone === z);
+    pointSel.innerHTML = pts.map(p => `<option value="${p.point_id}">${p.name}</option>`).join("");
+  }
+  zoneSel.addEventListener("change", () => { refreshPoints(); drawExplorer(); });
+  pointSel.addEventListener("change", drawExplorer);
+  varSel.addEventListener("change", drawExplorer);
+  refreshPoints();
+  drawExplorer();
+
+  function drawExplorer() {
+    const pointId = pointSel.value;
+    const varName = varSel.value;
+    const rows = DATA.blend.filter(r => r.point_id === pointId).sort((a, b) => a.lead_hours - b.lead_hours);
+    if (!rows.length) return;
+
+    const labels = rows.map(r => `${r.lead_hours}h`);
+    const blendKey = `${varName}_blend`;
+    const modelKeys = Object.keys(rows[0]).filter(k => k.startsWith(varName + "_") && !k.endsWith("_blend") && !k.endsWith("_equal_mean"));
+
+    const datasets = [{
+      label: "Blend", data: rows.map(r => r[blendKey]),
+      color: "#0f5fa8", width: 2.5,
+    }];
+    modelKeys.forEach(mk => {
+      const model = mk.slice(varName.length + 1);
+      datasets.push({
+        label: MODEL_LABEL[model] || model,
+        data: rows.map(r => r[mk]),
+        color: MODEL_COLOR[model] || "#888",
+        width: 1.3, dashed: true,
+      });
+    });
+
+    drawLineChart(document.getElementById("explorerChart"), { labels, datasets });
+  }
+}
+
+function initWeights() {
+  const leadSel = document.getElementById("weightLead");
+  const varSel = document.getElementById("weightVar");
+  const leads = [...new Set(DATA.weights.map(r => r.lead_hours))].sort((a, b) => a - b);
+  leadSel.innerHTML = leads.map(l => `<option value="${l}">${l}h lead</option>`).join("");
+  leadSel.value = leads.includes(24) ? 24 : leads[0];
+
+  leadSel.addEventListener("change", drawWeights);
+  varSel.addEventListener("change", drawWeights);
+  drawWeights();
+
+  function drawWeights() {
+    const lead = Number(leadSel.value);
+    const varName = varSel.value;
+    const relevant = DATA.weights.filter(r => r.lead_hours === lead && r.variable === varName);
+    const byZone = {};
+    relevant.forEach(r => { (byZone[r.zone] = byZone[r.zone] || []).push(r); });
+
+    const shapes = [];
+    POINTS.forEach(p => {
+      const zw = byZone[p.zone];
+      if (!zw) return;
+      let dominant = zw[0], maxW = -1;
+      zw.forEach(r => { if (r.weight > maxW) { maxW = r.weight; dominant = r; } });
+      const [x, y] = projectLatLon(p.lat, p.lon);
+      const r = 4 + maxW * 11;
+      shapes.push(`<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r.toFixed(1)}" fill="${MODEL_COLOR[dominant.model] || '#888'}" fill-opacity="0.88" stroke="#ffffff" stroke-width="0.7"/>`);
+    });
+    document.getElementById("weightMap").innerHTML = indiaBase() + shapes.join("");
+
+    const models = [...new Set(relevant.map(r => r.model))];
+    const zones = [...new Set(relevant.map(r => r.zone))].sort();
+    let thead = `<tr><th>Zone</th>${models.map(m => `<th class="mono">${MODEL_LABEL[m] || m}</th>`).join("")}</tr>`;
+    let tbody = zones.map(z => {
+      const cells = models.map(m => {
+        const row = relevant.find(r => r.zone === z && r.model === m);
+        return `<td class="mono">${row ? row.weight.toFixed(2) : "N/A"}</td>`;
+      }).join("");
+      return `<tr><td>${ZONES_META[z]?.label || z}</td>${cells}</tr>`;
+    }).join("");
+    document.getElementById("weightTable").querySelector("thead").innerHTML = thead;
+    document.getElementById("weightTable").querySelector("tbody").innerHTML = tbody;
+  }
+}
+
+function initExtremes() {
+  const events = DATA.extremesDaily.filter(r =>
+    (r.rain_category && r.rain_category !== "none") ||
+    (r.heat_category && r.heat_category !== "none") ||
+    (r.wind_category && r.wind_category !== "none")
+  );
+
+  const counts = { rain: 0, heat: 0, wind: 0 };
+  events.forEach(e => {
+    if (e.rain_category !== "none") counts.rain++;
+    if (e.heat_category !== "none") counts.heat++;
+    if (e.wind_category !== "none") counts.wind++;
+  });
+  document.getElementById("extremeKpiRow").innerHTML = [
+    { val: events.length, lbl: "total flagged days" },
+    { val: counts.rain, lbl: "heavy rain events" },
+    { val: counts.heat, lbl: "heat wave events" },
+    { val: counts.wind, lbl: "high wind events" },
+  ].map(k => `<div class="kpi"><span class="kpi-ic">${kpiIcon(k.lbl)}</span><div class="val">${k.val}</div><div class="lbl">${k.lbl}</div></div>`).join("");
+
+  function badge(cat) {
+    if (!cat || cat === "none") return `<span class="badge none">None</span>`;
+    const cls = cat.includes("extreme") || cat.includes("severe") ? "red" : "amber";
+    return `<span class="badge ${cls}">${cat.replace(/_/g, " ")}</span>`;
+  }
+
+  const thead = `<tr><th>Station</th><th>Zone</th><th>Date</th><th>Rain</th><th>Heat</th><th>Wind</th><th class="mono">Rain (mm)</th><th class="mono">Max (C)</th><th class="mono">Rain agreement</th></tr>`;
+  const tbody = events.length ? events.map(e => `<tr>
+      <td>${e.point_id}</td><td>${ZONES_META[e.zone]?.label || e.zone}</td><td class="mono">${e.rain_day}</td>
+      <td>${badge(e.rain_category)}</td><td>${badge(e.heat_category)}</td><td>${badge(e.wind_category)}</td>
+      <td class="mono">${(e.precip_day_sum_blend || 0).toFixed(1)}</td>
+      <td class="mono">${(e.temp_day_max_blend || 0).toFixed(1)}</td>
+      <td class="mono">${e.rain_model_agreement != null ? (e.rain_model_agreement * 100).toFixed(0) + "%" : "N/A"}</td>
+    </tr>`).join("") : `<tr><td colspan="9" class="empty">No extreme events flagged in the current forecast window.</td></tr>`;
+
+  document.getElementById("extremeTable").querySelector("thead").innerHTML = thead;
+  document.getElementById("extremeTable").querySelector("tbody").innerHTML = tbody;
+}
+
+function initConfidence() {
+  const byLead = {};
+  DATA.confidence.forEach(r => {
+    const lb = r.lead_bucket;
+    if (!byLead[lb]) byLead[lb] = [];
+    byLead[lb].push(r.overall_confidence || 0);
+  });
+  const leads = Object.keys(byLead).map(Number).sort((a, b) => a - b);
+  const avgs = leads.map(l => byLead[l].reduce((a, b) => a + b, 0) / byLead[l].length);
+
+  drawLineChart(document.getElementById("confidenceLeadChart"), {
+    labels: leads.map(l => `${l}h`),
+    datasets: [{ label: "Overall confidence", data: avgs, color: "#0f5fa8", width: 2.5, showPoints: true }],
+    yMin: 0, yMax: 100,
+  });
+
+  const dayZone = {};
+  DATA.confidence.forEach(r => {
+    const d = toDate(r.valid_time);
+    d.setUTCHours(d.getUTCHours() - 3);
+    const day = d.toISOString().slice(0, 10);
+    const key = r.zone + "|" + day;
+    if (!dayZone[key]) dayZone[key] = [];
+    dayZone[key].push(r.overall_confidence || 0);
+  });
+  const zones = [...new Set(DATA.confidence.map(r => r.zone))].sort();
+  const days = [...new Set(Object.keys(dayZone).map(k => k.split("|")[1]))].sort();
+
+  const thead = `<tr><th>Zone</th>${days.map(d => `<th class="mono">${d.slice(5)}</th>`).join("")}</tr>`;
+  const tbody = zones.map(z => {
+    const cells = days.map(d => {
+      const vals = dayZone[z + "|" + d];
+      if (!vals) return `<td class="mono">N/A</td>`;
+      const avg = vals.reduce((a, b) => a + b, 0) / vals.length;
+      const level = avg >= 70 ? "green" : avg >= 40 ? "amber" : "red";
+      return `<td class="mono"><span class="badge ${level}">${avg.toFixed(0)}</span></td>`;
+    }).join("");
+    return `<tr><td>${ZONES_META[z]?.label || z}</td>${cells}</tr>`;
+  }).join("");
+  document.getElementById("confidenceTable").querySelector("thead").innerHTML = thead;
+  document.getElementById("confidenceTable").querySelector("tbody").innerHTML = tbody;
+}
+
+const ICONS = {
+  grid:'<rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>',
+  chart:'<path d="M3 20h18M5 15l4-5 4 3 6-8"/>',
+  blend:'<circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/>',
+  alert:'<path d="M12 3l10 18H2z"/><path d="M12 10v5M12 18v.5"/>',
+  gauge:'<path d="M4 17a8 8 0 1116 0"/><path d="M12 17l4-5"/>',
+  pin:'<path d="M12 21s7-6.2 7-11a7 7 0 10-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/>',
+  layers:'<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+  rain:'<path d="M7 15a4 4 0 010-8 5 5 0 019.5 1.5A3.2 3.2 0 0117 15z"/><path d="M8 18l-1 3M12 18l-1 3M16 18l-1 3"/>',
+  sun:'<circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M19 5l-2 2M7 17l-2 2"/>',
+  wind:'<path d="M3 9h11a3 3 0 10-3-3M3 15h15a3 3 0 11-3 3M3 12h8"/>'
+};
+function ico(n){ return `<svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${ICONS[n] || ""}</svg>`; }
+function kpiIcon(l) {
+  const k = /station/.test(l) ? "pin" : /zone/.test(l) ? "layers" : /model/.test(l) ? "blend" : /rain/.test(l) ? "rain" :
+            /heat/.test(l) ? "sun" : /wind/.test(l) ? "wind" : /confidence/.test(l) ? "gauge" : "alert";
+  return ico(k);
+}
+const NAV_ICON = { overview: "grid", explorer: "chart", weights: "blend", extremes: "alert", confidence: "gauge" };
+document.querySelectorAll("nav.tabs button").forEach(b => b.insertAdjacentHTML("afterbegin", ico(NAV_ICON[b.dataset.tab])));
+
+const INDIA_OUTLINE = [[74.3,37],[75.9,36.6],[77.8,35.5],[78.9,34.4],[78.2,32.9],[79.1,31.6],[80.2,30.6],[81,30.2],[80.1,28.8],[81.9,27.9],[84,27.4],[86,26.6],[88.1,26.5],[88.2,27.4],[88.9,27.9],[88.8,26.9],[89.9,26.7],[92,26.9],[92.7,27.9],[94.5,29.3],[96.2,29],[97.3,28.2],[96,27.2],[95.2,26],[94.6,24.1],[93.4,22],[92.6,22.9],[92.2,24],[91.5,25.1],[90.2,25.2],[89.8,26],[89,25.3],[88.3,24.6],[88.6,23.4],[89,22],[88,21.6],[86.9,21.3],[86.4,20.2],[85.1,19.3],[83.5,17.9],[82.3,16.6],[81,15.8],[80.2,13.6],[79.9,11.6],[79.8,10.3],[78.9,9.3],[78.2,8.9],[77.5,8.1],[76.6,8.9],[75.9,11.2],[74.8,12.9],[74,15],[73.3,17],[72.8,19],[72.7,20.5],[72.6,21.4],[72,21],[71,20.8],[70,21],[69.2,22],[70,22.8],[69,22.9],[68.2,23.7],[69.6,24.2],[71,24.4],[70,25.7],[70.3,27],[70.9,28],[72.3,28.9],[73.8,29.9],[74.6,31],[74.6,32.1],[74,32.9],[73.9,34.3],[74.3,35.2]];
+function indiaBase() {
+  const d = INDIA_OUTLINE.map((p, i) => { const [x, y] = projectLatLon(p[1], p[0]); return (i ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1); }).join(" ") + "Z";
+  let grid = "";
+  for (let lat = 10; lat <= 35; lat += 5) { const y = projectLatLon(lat, 68)[1]; grid += `<line x1="40" x2="680" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}"/>`; }
+  for (let lon = 70; lon <= 95; lon += 5) { const x = projectLatLon(30, lon)[0]; grid += `<line y1="30" y2="550" x1="${x.toFixed(1)}" x2="${x.toFixed(1)}"/>`; }
+  return `<g stroke="#c5dbec" stroke-width="1" stroke-dasharray="2 5">${grid}</g><path d="${d}" fill="#fff6e4" stroke="#d8c08a" stroke-width="2" stroke-linejoin="round"/>`;
+}
+
+const ZONE_ART = {
+  himalayan: `<rect width="160" height="90" fill="#dcecf8"/><circle cx="128" cy="22" r="9" fill="#ffd27a"/><path d="M0 90V58l28-32 16 18 24-30 36 44 18-14 38 24v22z" fill="#86a9c8"/><path d="M28 26l-8 10 8-3 7 3zM68 14l-10 14 10-5 10 5z" fill="#fff"/><path d="M0 90V72l40-10 50 12 70-14v30z" fill="#4f8f6a"/>`,
+  indo_gangetic: `<rect width="160" height="90" fill="#fdf0d4"/><circle cx="30" cy="22" r="10" fill="#ffc15e"/><path d="M0 50h160v40H0z" fill="#b9d98a"/><path d="M0 62h160v8H0zM0 78h160v6H0z" fill="#9cc86d"/><path d="M-5 70c40-30 70 20 110-6s40-12 60-18" fill="none" stroke="#5aa9e0" stroke-width="7" stroke-linecap="round"/>`,
+  western_ghats_coast: `<rect width="160" height="90" fill="#d7efee"/><path d="M0 60l30-26 24 18 30-30 40 34 36-16v60H0z" fill="#3f9b78"/><path d="M0 72c20-6 40 6 60 0s60 6 100-2v20H0z" fill="#4aa3d8"/><path d="M122 70c-2-14-2-24 2-34" stroke="#7a5a3a" stroke-width="3" fill="none"/><path d="M124 36c-12-2-18 4-22 10M124 36c10-6 18-2 24 6M124 36c-2-8 4-14 10-16" stroke="#2f8a4f" stroke-width="3" fill="none" stroke-linecap="round"/>`,
+  deccan_plateau: `<rect width="160" height="90" fill="#fbe6cf"/><circle cx="120" cy="24" r="10" fill="#ffc15e"/><path d="M0 90V54h30l8-10h40l8 10h30l8-8h36v44z" fill="#d9a066"/><path d="M0 90V72h160v18z" fill="#b97d45"/>`,
+  east_coast: `<rect width="160" height="90" fill="#dcebfa"/><circle cx="30" cy="20" r="9" fill="#ffd27a"/><path d="M0 56c20-8 40 6 60 0s60 6 100-2v36H0z" fill="#4aa3d8"/><path d="M0 70c20-8 40 6 60 0s60 6 100-2v22H0z" fill="#2f86c9"/><path d="M104 52l4-30h10l4 30z" fill="#fff" stroke="#d96b4a" stroke-width="3"/><path d="M106 22h14l-7-9z" fill="#d96b4a"/>`,
+  peninsular_south: `<rect width="160" height="90" fill="#e4f3dc"/><circle cx="130" cy="22" r="9" fill="#ffd27a"/><path d="M0 90V64c30-18 60 4 90-6s50-4 70 0v32z" fill="#7cbf6a"/><path d="M62 70V52h36v18zM68 52V42h24v10zM74 42V34h12v8zM78 34l2-8 2 8z" fill="#d98a5b" stroke="#a65f35" stroke-width="1.5"/>`,
+  arid_west: `<rect width="160" height="90" fill="#fdeccb"/><circle cx="116" cy="30" r="14" fill="#ffb347"/><path d="M0 90V64c30-18 50 4 80-8s50 6 80-2v36z" fill="#e8b66b"/><path d="M0 90V78c40-14 70 6 100-4s40-2 60 0v16z" fill="#d79c4e"/>`
+};
+function renderZoneGallery() {
+  const el = document.getElementById("zoneGallery"); if (!el) return;
+  const conf = {};
+  DATA.confidence.forEach(r => { (conf[r.zone] = conf[r.zone] || []).push(r.overall_confidence || 0); });
+  el.innerHTML = Object.keys(ZONES_META).map(z => {
+    const n = POINTS.filter(p => p.zone === z).length, v = conf[z];
+    const avg = v ? v.reduce((a, b) => a + b, 0) / v.length : null;
+    const lvl = avg == null ? "none" : avg >= 70 ? "green" : avg >= 40 ? "amber" : "red";
+    return `<div class="zone-card"><svg viewBox="0 0 160 90" preserveAspectRatio="xMidYMid slice">${ZONE_ART[z] || ""}</svg><div class="zc-body"><h3>${ZONES_META[z].label}</h3><div class="zc-meta"><span>${n} stations</span><span class="badge ${lvl}">${avg == null ? "N/A" : avg.toFixed(0) + " confidence"}</span></div></div></div>`;
+  }).join("");
+}
+
+boot();
+</script>
+</body>
+</html>

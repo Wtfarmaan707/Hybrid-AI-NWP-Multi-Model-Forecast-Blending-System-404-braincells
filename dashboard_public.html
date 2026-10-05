@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>India Weather Now — Your Local Forecast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --sky:#4fb2e0; --sky-dark:#2f8fc0; --sky-tint:#eaf7fd; --sky-tint-2:#d8f0fa;
+  --leaf:#5fc687; --leaf-dark:#379960; --leaf-tint:#e9f9ef;
+  --amber:#f0b84c; --amber-dark:#c8901f; --amber-tint:#fdf3e0;
+  --coral:#f0755c; --coral-dark:#c94f38; --coral-tint:#fdece8;
+  --lavender:#9b8ce0; --lavender-tint:#f1eefb;
+  --ink:#1e3a4c; --muted:#6b8494; --line:#dbeaf2;
+  --card:#ffffff; --page:#f4fbfd;
+}
+*{box-sizing:border-box}
+body{
+  margin:0; background:var(--page); color:var(--ink);
+  font-family:"Inter",system-ui,sans-serif; font-size:16px; line-height:1.5;
+  background-image:radial-gradient(circle at 15% 0%, var(--sky-tint) 0%, transparent 45%),
+                    radial-gradient(circle at 100% 20%, var(--leaf-tint) 0%, transparent 40%);
+  background-attachment:fixed;
+}
+.wrap{max-width:1080px; margin:0 auto; padding:0 1.25rem 4rem}
+
+/* topbar */
+.topbar{
+  position:sticky; top:0; z-index:50; background:rgba(244,251,253,.92); backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--line); padding:1rem 1.25rem;
+}
+.topbar-inner{max-width:1080px; margin:0 auto; display:flex; align-items:center; gap:1rem; flex-wrap:wrap}
+.brand{display:flex; align-items:center; gap:.5rem; font-weight:800; font-size:1.15rem; white-space:nowrap}
+.brand .emoji{font-size:1.4rem}
+.search-area{flex:1; min-width:220px; position:relative}
+.search-input{
+  width:100%; padding:.7rem 1rem; border-radius:99px; border:2px solid var(--line);
+  font-family:inherit; font-size:.95rem; background:#fff; color:var(--ink); outline:none;
+}
+.search-input:focus{border-color:var(--sky)}
+.search-dropdown{
+  position:absolute; top:calc(100% + 6px); left:0; right:0; background:#fff; border:1px solid var(--line);
+  border-radius:14px; box-shadow:0 8px 24px rgba(30,58,76,.12); max-height:280px; overflow-y:auto; z-index:60;
+  display:none;
+}
+.search-dropdown.open{display:block}
+.search-item{padding:.65rem 1rem; cursor:pointer; display:flex; justify-content:space-between; align-items:center}
+.search-item:hover, .search-item.hl{background:var(--sky-tint)}
+.search-item .zone{font-size:.75rem; color:var(--muted)}
+.locbtn{
+  display:flex; align-items:center; gap:.4rem; padding:.65rem 1.1rem; border-radius:99px; border:none;
+  background:var(--leaf); color:#fff; font-weight:600; font-size:.88rem; cursor:pointer; white-space:nowrap;
+}
+.locbtn:hover{background:var(--leaf-dark)}
+.locbtn:disabled{opacity:.6; cursor:default}
+
+main{padding-top:1.75rem}
+.loading, .empty-state{text-align:center; padding:4rem 1rem; color:var(--muted)}
+.loading .spin{font-size:2.4rem; display:inline-block; animation:spin 1.4s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* hero */
+.hero{
+  background:linear-gradient(135deg, var(--sky) 0%, var(--sky-dark) 100%); color:#fff;
+  border-radius:24px; padding:2rem 2rem; margin-bottom:1.5rem; position:relative; overflow:hidden;
+}
+.hero .locname{font-size:1.7rem; font-weight:800; margin:0 0 .15rem}
+.hero .subloc{font-size:.9rem; opacity:.85; margin:0 0 1.4rem}
+.hero-main{display:flex; align-items:center; gap:1.3rem; flex-wrap:wrap}
+.hero-emoji{font-size:4rem; line-height:1}
+.hero-temp{font-size:3.6rem; font-weight:800; line-height:1}
+.hero-desc{font-size:1.15rem; font-weight:600; margin-top:.2rem}
+.hero-range{font-size:.9rem; opacity:.85; margin-top:.2rem}
+.confidence-pill{
+  margin-left:auto; align-self:flex-start; display:flex; align-items:center; gap:.4rem;
+  background:rgba(255,255,255,.18); padding:.5rem 1rem; border-radius:99px; font-size:.85rem; font-weight:600;
+}
+.confidence-pill .dot{width:9px; height:9px; border-radius:50%}
+
+/* alert banner */
+.alert-banner{
+  display:flex; gap:.8rem; align-items:flex-start; background:var(--coral-tint); border:1px solid #f3b3a4;
+  color:var(--coral-dark); padding:1rem 1.2rem; border-radius:16px; margin-bottom:1.5rem; font-size:.92rem;
+}
+.alert-banner .emoji{font-size:1.4rem}
+.alert-banner b{display:block; margin-bottom:.15rem; font-size:.98rem}
+
+/* day strip */
+.section-title{font-size:1.05rem; font-weight:700; margin:0 0 .8rem; display:flex; align-items:center; gap:.5rem}
+.daystrip{display:flex; gap:.75rem; overflow-x:auto; padding-bottom:.4rem; margin-bottom:1.75rem}
+.daycard{
+  flex:0 0 auto; width:108px; background:var(--card); border:1px solid var(--line); border-radius:16px;
+  padding:.9rem .7rem; text-align:center; cursor:pointer; transition:transform .12s, border-color .12s;
+}
+.daycard:hover{transform:translateY(-2px); border-color:var(--sky)}
+.daycard.active{border-color:var(--sky); background:var(--sky-tint)}
+.daycard .d{font-size:.72rem; color:var(--muted); font-weight:600; text-transform:uppercase; letter-spacing:.02em}
+.daycard .e{font-size:1.8rem; margin:.35rem 0}
+.daycard .hi{font-weight:700; font-size:1rem}
+.daycard .lo{color:var(--muted); font-size:.85rem}
+.daycard .rain{font-size:.72rem; color:var(--sky-dark); margin-top:.3rem; font-weight:600}
+
+/* cards grid */
+.grid2{display:grid; grid-template-columns:1.3fr 1fr; gap:1.25rem; margin-bottom:1.5rem}
+@media (max-width:760px){.grid2{grid-template-columns:1fr}}
+.card{background:var(--card); border:1px solid var(--line); border-radius:20px; padding:1.4rem 1.5rem}
+.card h3{margin:0 0 1rem; font-size:1rem; font-weight:700}
+.card .hint{font-size:.82rem; color:var(--muted); margin:-.6rem 0 1rem}
+
+/* chart toggle */
+.toggle-row{display:flex; align-items:center; gap:.5rem; margin-bottom:.8rem; font-size:.85rem; color:var(--muted)}
+.toggle-row input{accent-color:var(--sky)}
+.chart-box{height:220px}
+
+/* trust bars */
+.trust-row{display:flex; align-items:center; gap:.7rem; margin-bottom:.85rem}
+.trust-label{width:60px; font-size:.82rem; font-weight:600; flex:0 0 auto}
+.trust-track{flex:1; height:10px; background:var(--line); border-radius:99px; overflow:hidden}
+.trust-fill{height:100%; border-radius:99px}
+.trust-pct{width:40px; text-align:right; font-size:.82rem; font-weight:700; font-variant-numeric:tabular-nums}
+
+/* mini map */
+.mapcard{padding:1.4rem 1.5rem}
+svg.minimap{width:100%; height:auto; display:block}
+.minimap circle{cursor:pointer; transition:r .12s}
+.minimap circle:hover{stroke:var(--ink); stroke-width:2}
+
+/* footer link */
+.ops-link{
+  display:block; text-align:center; margin-top:2rem; padding:1rem; border-radius:16px;
+  background:var(--lavender-tint); color:#5d4fb0; text-decoration:none; font-size:.88rem; font-weight:600;
+}
+.ops-link:hover{background:#e6e1f7}
+
+.errbox{background:var(--coral-tint); border:1px solid #f3b3a4; color:var(--coral-dark); border-radius:16px; padding:1.2rem 1.4rem; font-size:.88rem}
+.errbox pre{background:#fff; padding:.7rem; border-radius:10px; font-size:.8rem; overflow-x:auto}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand"><span class="emoji">🌦️</span> India Weather Now</div>
+    <div class="search-area">
+      <input type="text" class="search-input" id="searchInput" placeholder="Search your city (e.g. Mumbai, Jaipur, Kochi)...">
+      <div class="search-dropdown" id="searchDropdown"></div>
+    </div>
+    <button class="locbtn" id="locBtn">📍 Use my location</button>
+  </div>
+</div>
+
+<div class="wrap">
+  <main>
+    <div id="loading" class="loading"><div class="spin">🌍</div><div>Loading the latest blended forecast…</div></div>
+    <div id="loadErr" class="errbox" style="display:none"></div>
+    <div id="app" style="display:none"></div>
+  </main>
+</div>
+
+<script>
+const POINTS = [{"point_id": "himalayan:srinagar", "zone": "himalayan", "name": "Srinagar", "lat": 34.08, "lon": 74.8}, {"point_id": "himalayan:shimla", "zone": "himalayan", "name": "Shimla", "lat": 31.1, "lon": 77.17}, {"point_id": "himalayan:dehradun", "zone": "himalayan", "name": "Dehradun", "lat": 30.32, "lon": 78.03}, {"point_id": "himalayan:gangtok", "zone": "himalayan", "name": "Gangtok", "lat": 27.33, "lon": 88.61}, {"point_id": "himalayan:shillong", "zone": "himalayan", "name": "Shillong", "lat": 25.58, "lon": 91.89}, {"point_id": "himalayan:itanagar", "zone": "himalayan", "name": "Itanagar", "lat": 27.1, "lon": 93.62}, {"point_id": "himalayan:leh", "zone": "himalayan", "name": "Leh", "lat": 34.16, "lon": 77.58}, {"point_id": "himalayan:darjeeling", "zone": "himalayan", "name": "Darjeeling", "lat": 27.04, "lon": 88.26}, {"point_id": "indo_gangetic:delhi", "zone": "indo_gangetic", "name": "Delhi", "lat": 28.61, "lon": 77.21}, {"point_id": "indo_gangetic:lucknow", "zone": "indo_gangetic", "name": "Lucknow", "lat": 26.85, "lon": 80.95}, {"point_id": "indo_gangetic:patna", "zone": "indo_gangetic", "name": "Patna", "lat": 25.59, "lon": 85.14}, {"point_id": "indo_gangetic:amritsar", "zone": "indo_gangetic", "name": "Amritsar", "lat": 31.63, "lon": 74.87}, {"point_id": "indo_gangetic:kanpur", "zone": "indo_gangetic", "name": "Kanpur", "lat": 26.45, "lon": 80.35}, {"point_id": "indo_gangetic:varanasi", "zone": "indo_gangetic", "name": "Varanasi", "lat": 25.32, "lon": 83.01}, {"point_id": "indo_gangetic:chandigarh", "zone": "indo_gangetic", "name": "Chandigarh", "lat": 30.73, "lon": 76.78}, {"point_id": "indo_gangetic:jaipur", "zone": "indo_gangetic", "name": "Jaipur", "lat": 26.91, "lon": 75.79}, {"point_id": "indo_gangetic:agra", "zone": "indo_gangetic", "name": "Agra", "lat": 27.18, "lon": 78.02}, {"point_id": "indo_gangetic:bareilly", "zone": "indo_gangetic", "name": "Bareilly", "lat": 28.35, "lon": 79.43}, {"point_id": "western_ghats_coast:mumbai", "zone": "western_ghats_coast", "name": "Mumbai", "lat": 19.08, "lon": 72.88}, {"point_id": "western_ghats_coast:pune", "zone": "western_ghats_coast", "name": "Pune", "lat": 18.52, "lon": 73.86}, {"point_id": "western_ghats_coast:goa", "zone": "western_ghats_coast", "name": "Goa", "lat": 15.3, "lon": 74.12}, {"point_id": "western_ghats_coast:mangalore", "zone": "western_ghats_coast", "name": "Mangalore", "lat": 12.91, "lon": 74.86}, {"point_id": "western_ghats_coast:kochi", "zone": "western_ghats_coast", "name": "Kochi", "lat": 9.93, "lon": 76.27}, {"point_id": "western_ghats_coast:thiruvananthapuram", "zone": "western_ghats_coast", "name": "Thiruvananthapuram", "lat": 8.52, "lon": 76.94}, {"point_id": "western_ghats_coast:kozhikode", "zone": "western_ghats_coast", "name": "Kozhikode", "lat": 11.26, "lon": 75.78}, {"point_id": "western_ghats_coast:ratnagiri", "zone": "western_ghats_coast", "name": "Ratnagiri", "lat": 16.99, "lon": 73.31}, {"point_id": "western_ghats_coast:coorg", "zone": "western_ghats_coast", "name": "Coorg", "lat": 12.42, "lon": 75.74}, {"point_id": "deccan_plateau:nagpur", "zone": "deccan_plateau", "name": "Nagpur", "lat": 21.15, "lon": 79.09}, {"point_id": "deccan_plateau:hyderabad", "zone": "deccan_plateau", "name": "Hyderabad", "lat": 17.39, "lon": 78.49}, {"point_id": "deccan_plateau:bhopal", "zone": "deccan_plateau", "name": "Bhopal", "lat": 23.26, "lon": 77.41}, {"point_id": "deccan_plateau:nashik", "zone": "deccan_plateau", "name": "Nashik", "lat": 20.0, "lon": 73.79}, {"point_id": "deccan_plateau:raipur", "zone": "deccan_plateau", "name": "Raipur", "lat": 21.25, "lon": 81.63}, {"point_id": "deccan_plateau:bengaluru", "zone": "deccan_plateau", "name": "Bengaluru", "lat": 12.97, "lon": 77.59}, {"point_id": "deccan_plateau:indore", "zone": "deccan_plateau", "name": "Indore", "lat": 22.72, "lon": 75.86}, {"point_id": "deccan_plateau:aurangabad", "zone": "deccan_plateau", "name": "Aurangabad", "lat": 19.88, "lon": 75.34}, {"point_id": "east_coast:chennai", "zone": "east_coast", "name": "Chennai", "lat": 13.08, "lon": 80.27}, {"point_id": "east_coast:visakhapatnam", "zone": "east_coast", "name": "Visakhapatnam", "lat": 17.69, "lon": 83.22}, {"point_id": "east_coast:bhubaneswar", "zone": "east_coast", "name": "Bhubaneswar", "lat": 20.3, "lon": 85.82}, {"point_id": "east_coast:kolkata", "zone": "east_coast", "name": "Kolkata", "lat": 22.57, "lon": 88.36}, {"point_id": "east_coast:puducherry", "zone": "east_coast", "name": "Puducherry", "lat": 11.94, "lon": 79.83}, {"point_id": "east_coast:nellore", "zone": "east_coast", "name": "Nellore", "lat": 14.44, "lon": 79.99}, {"point_id": "east_coast:cuttack", "zone": "east_coast", "name": "Cuttack", "lat": 20.46, "lon": 85.88}, {"point_id": "peninsular_south:madurai", "zone": "peninsular_south", "name": "Madurai", "lat": 9.93, "lon": 78.12}, {"point_id": "peninsular_south:coimbatore", "zone": "peninsular_south", "name": "Coimbatore", "lat": 11.02, "lon": 76.97}, {"point_id": "peninsular_south:tiruchirappalli", "zone": "peninsular_south", "name": "Tiruchirappalli", "lat": 10.79, "lon": 78.7}, {"point_id": "peninsular_south:salem", "zone": "peninsular_south", "name": "Salem", "lat": 11.66, "lon": 78.15}, {"point_id": "peninsular_south:vellore", "zone": "peninsular_south", "name": "Vellore", "lat": 12.92, "lon": 79.13}, {"point_id": "peninsular_south:mysuru", "zone": "peninsular_south", "name": "Mysuru", "lat": 12.3, "lon": 76.65}, {"point_id": "arid_west:jodhpur", "zone": "arid_west", "name": "Jodhpur", "lat": 26.29, "lon": 73.02}, {"point_id": "arid_west:bikaner", "zone": "arid_west", "name": "Bikaner", "lat": 28.02, "lon": 73.31}, {"point_id": "arid_west:jaisalmer", "zone": "arid_west", "name": "Jaisalmer", "lat": 26.91, "lon": 70.92}, {"point_id": "arid_west:bhuj", "zone": "arid_west", "name": "Bhuj", "lat": 23.25, "lon": 69.67}, {"point_id": "arid_west:ahmedabad", "zone": "arid_west", "name": "Ahmedabad", "lat": 23.03, "lon": 72.58}];
+const ZONES_META = {"himalayan": {"label": "Himalayan & NE Hills", "color": "#3b7dd8"}, "indo_gangetic": {"label": "Indo-Gangetic Plain", "color": "#d9a441"}, "western_ghats_coast": {"label": "Western Ghats & West Coast", "color": "#2fa66a"}, "deccan_plateau": {"label": "Deccan Plateau / Central India", "color": "#c15a3c"}, "east_coast": {"label": "East Coast / Bay of Bengal", "color": "#8a5fbf"}, "peninsular_south": {"label": "Peninsular South & Tamil Nadu Interior", "color": "#4aa8a0"}, "arid_west": {"label": "Arid West (Rajasthan / Kutch)", "color": "#e0c341"}};
+
+const MODEL_LABEL = { gfs_global: "GFS", icon_global: "ICON", ecmwf_aifs025_single: "AIFS" };
+const MODEL_COLOR = { gfs_global: "#4fb2e0", icon_global: "#5fc687", ecmwf_aifs025_single: "#9b8ce0" };
+
+function toDate(s) {
+  if (typeof s !== "string") return new Date(s);
+  return new Date(s.includes("T") ? s : s.replace(" ", "T"));
+}
+function parseCSVLine(line) {
+  const out = []; let cur = "", inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQ) { if (c === '"' && line[i+1] === '"') { cur += '"'; i++; } else if (c === '"') inQ = false; else cur += c; }
+    else { if (c === '"') inQ = true; else if (c === ',') { out.push(cur); cur = ""; } else cur += c; }
+  }
+  out.push(cur); return out;
+}
+function parseCSV(text) {
+  const lines = text.split(/\r?\n/).filter(l => l.length > 0);
+  if (!lines.length) return [];
+  const headers = parseCSVLine(lines[0]);
+  return lines.slice(1).map(line => {
+    const vals = parseCSVLine(line); const row = {};
+    headers.forEach((h, j) => {
+      const raw = vals[j];
+      if (raw === undefined || raw === "") { row[h] = null; return; }
+      const num = Number(raw);
+      row[h] = (raw.trim() !== "" && !isNaN(num)) ? num : raw;
+    });
+    return row;
+  });
+}
+async function loadCSV(path) {
+  const res = await fetch(path);
+  if (!res.ok) throw new Error(`Failed to fetch ${path}`);
+  return parseCSV(await res.text());
+}
+function haversine(lat1, lon1, lat2, lon2) {
+  const R = 6371, toRad = d => d * Math.PI / 180;
+  const dLat = toRad(lat2 - lat1), dLon = toRad(lon2 - lon1);
+  const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1))*Math.cos(toRad(lat2))*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+function nearestPoint(lat, lon) {
+  let best = null, bestD = Infinity;
+  POINTS.forEach(p => { const d = haversine(lat, lon, p.lat, p.lon); if (d < bestD) { bestD = d; best = p; } });
+  return { point: best, distanceKm: bestD };
+}
+
+let DATA = { blend: [], daily: [], confidence: [], weights: [] };
+let currentPointId = null;
+let showAllModels = false;
+
+async function boot() {
+  try {
+    const [blend, daily, confidence, weights] = await Promise.all([
+      loadCSV("data/processed/blended_forecast.csv"),
+      loadCSV("data/processed/daily_extremes_full.csv"),
+      loadCSV("data/processed/confidence_index.csv"),
+      loadCSV("data/processed/weights_table.csv"),
+    ]);
+    DATA = { blend, daily, confidence, weights };
+    document.getElementById("loading").style.display = "none";
+    document.getElementById("app").style.display = "block";
+    initSearch();
+    initLocationButton();
+    selectPoint("indo_gangetic:delhi");
+  } catch (err) {
+    console.error(err);
+    document.getElementById("loading").style.display = "none";
+    const box = document.getElementById("loadErr");
+    box.style.display = "block";
+    box.innerHTML = `<b>Couldn't load the forecast data.</b><p>Make sure this page is served via <code>python -m http.server</code> from the project root, and that the pipeline has been run.</p><pre>${err.name}: ${err.message}</pre>`;
+  }
+}
+
+/* ---------- search ---------- */
+function initSearch() {
+  const input = document.getElementById("searchInput");
+  const dropdown = document.getElementById("searchDropdown");
+  let hlIndex = -1, currentMatches = [];
+
+  function render(matches) {
+    currentMatches = matches; hlIndex = -1;
+    if (!matches.length) { dropdown.classList.remove("open"); return; }
+    dropdown.innerHTML = matches.slice(0, 8).map((p, i) =>
+      `<div class="search-item" data-idx="${i}"><span>${p.name}</span><span class="zone">${ZONES_META[p.zone]?.label || p.zone}</span></div>`
+    ).join("");
+    dropdown.classList.add("open");
+    dropdown.querySelectorAll(".search-item").forEach(el => {
+      el.addEventListener("click", () => {
+        const p = currentMatches[Number(el.dataset.idx)];
+        input.value = p.name; dropdown.classList.remove("open");
+        selectPoint(p.point_id);
+      });
+    });
+  }
+
+  input.addEventListener("input", () => {
+    const q = input.value.trim().toLowerCase();
+    if (!q) { dropdown.classList.remove("open"); return; }
+    render(POINTS.filter(p => p.name.toLowerCase().includes(q)));
+  });
+  input.addEventListener("keydown", (e) => {
+    if (!dropdown.classList.contains("open")) return;
+    const items = dropdown.querySelectorAll(".search-item");
+    if (e.key === "ArrowDown") { e.preventDefault(); hlIndex = Math.min(hlIndex + 1, items.length - 1); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); hlIndex = Math.max(hlIndex - 1, 0); }
+    else if (e.key === "Enter") { e.preventDefault(); if (hlIndex >= 0) items[hlIndex].click(); return; }
+    else return;
+    items.forEach((it, i) => it.classList.toggle("hl", i === hlIndex));
+  });
+  document.addEventListener("click", (e) => {
+    if (!e.target.closest(".search-area")) dropdown.classList.remove("open");
+  });
+}
+
+/* ---------- geolocation ---------- */
+function initLocationButton() {
+  const btn = document.getElementById("locBtn");
+  btn.addEventListener("click", () => {
+    if (!navigator.geolocation) { alert("Your browser doesn't support location detection. Please search for your city instead."); return; }
+    btn.disabled = true; btn.textContent = "📍 Locating…";
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        const { point, distanceKm } = nearestPoint(latitude, longitude);
+        btn.disabled = false; btn.textContent = "📍 Use my location";
+        document.getElementById("searchInput").value = point.name;
+        selectPoint(point.point_id, distanceKm);
+      },
+      () => {
+        btn.disabled = false; btn.textContent = "📍 Use my location";
+        alert("Couldn't get your location — please allow location access, or just search for your city above.");
+      },
+      { timeout: 8000 }
+    );
+  });
+}
+
+/* ---------- weather -> plain language ---------- */
+function weatherPhrase(row) {
+  if (!row) return { emoji: "🌤️", text: "Forecast unavailable" };
+  if (row.rain_category && row.rain_category !== "none") {
+    const map = { heavy: "Heavy rain expected", very_heavy: "Very heavy rain expected", extremely_heavy: "Extremely heavy rain — take care" };
+    return { emoji: "⛈️", text: map[row.rain_category] || "Heavy rain expected" };
+  }
+  if (row.heat_category && row.heat_category !== "none") {
+    return { emoji: "🥵", text: row.heat_category === "severe_heat_wave" ? "Severe heat wave" : "Heat wave conditions" };
+  }
+  if (row.wind_category && row.wind_category !== "none") {
+    return { emoji: "💨", text: "Windy conditions" };
+  }
+  const p = row.precip_day_sum_blend || 0;
+  const t = row.temp_day_max_blend;
+  if (p > 8) return { emoji: "🌧️", text: "Rain likely" };
+  if (p > 1) return { emoji: "🌦️", text: "Light rain possible" };
+  if (t >= 34) return { emoji: "☀️", text: "Hot and sunny" };
+  if (t <= 20) return { emoji: "🌥️", text: "Cool and cloudy" };
+  return { emoji: "🌤️", text: "Pleasant" };
+}
+function confidenceInfo(score) {
+  if (score >= 70) return { label: "High confidence", color: "var(--leaf)" };
+  if (score >= 40) return { label: "Medium confidence", color: "var(--amber)" };
+  return { label: "Lower confidence", color: "var(--coral)" };
+}
+
+/* ---------- main render ---------- */
+function selectPoint(pointId, distanceKm) {
+  currentPointId = pointId;
+  const point = POINTS.find(p => p.point_id === pointId);
+  if (!point) return;
+
+  const dailyRows = DATA.daily.filter(r => r.point_id === pointId).sort((a, b) => new Date(a.rain_day) - new Date(b.rain_day));
+  const today = dailyRows[0];
+  const confRows = DATA.confidence.filter(r => r.point_id === pointId);
+  const todayConf = confRows.length ? confRows.reduce((s, r) => s + (r.overall_confidence || 0), 0) / confRows.length : 50;
+
+  const wx = weatherPhrase(today);
+  const conf = confidenceInfo(todayConf);
+  const locNote = distanceKm !== undefined
+    ? `Nearest forecast point to you — about ${distanceKm.toFixed(0)} km away`
+    : `${ZONES_META[point.zone]?.label || point.zone}`;
+
+  let html = `
+    <div class="hero">
+      <div class="locname">${point.name}</div>
+      <div class="subloc">${locNote}</div>
+      <div class="hero-main">
+        <div class="hero-emoji">${wx.emoji}</div>
+        <div>
+          <div class="hero-temp">${today ? Math.round(today.temp_day_max_blend) + "°C" : "—"}</div>
+          <div class="hero-desc">${wx.text}</div>
+          <div class="hero-range">${today ? `Today's high — rain: ${(today.precip_day_sum_blend||0).toFixed(0)}mm, wind: ${(today.wind_day_max_blend||0).toFixed(0)}km/h` : ""}</div>
+        </div>
+        <div class="confidence-pill"><span class="dot" style="background:${conf.color}"></span>${conf.label}</div>
+      </div>
+    </div>`;
+
+  const alertDays = dailyRows.filter(r => (r.rain_category && r.rain_category !== "none") || (r.heat_category && r.heat_category !== "none") || (r.wind_category && r.wind_category !== "none"));
+  if (alertDays.length) {
+    const a = alertDays[0];
+    const aw = weatherPhrase(a);
+    html += `<div class="alert-banner"><span class="emoji">${aw.emoji}</span><div><b>Weather alert for ${a.rain_day}</b>${aw.text}${a.rain_category !== "none" ? ` — up to ${a.precip_day_sum_blend.toFixed(0)}mm of rain expected` : ""}</div></div>`;
+  }
+
+  html += `<div class="section-title">📅 Next few days</div><div class="daystrip" id="dayStrip"></div>`;
+
+  html += `<div class="grid2">
+    <div class="card">
+      <h3>📈 Temperature trend</h3>
+      <div class="hint">Hour-by-hour blended forecast for the next few days</div>
+      <label class="toggle-row"><input type="checkbox" id="showModelsToggle"> Show individual forecast sources</label>
+      <div class="chart-box"><svg id="tempChart" width="100%" height="100%"></svg></div>
+    </div>
+    <div class="card">
+      <h3>🤝 Which forecast do we trust here?</h3>
+      <div class="hint">We blend 3 global weather models — here's how much each is trusted for ${point.name} right now</div>
+      <div id="trustBars"></div>
+    </div>
+  </div>`;
+
+  html += `<div class="card mapcard">
+    <h3>🗺️ Or pick a city from the map</h3>
+    <svg class="minimap" id="miniMap" viewBox="0 0 820 560"></svg>
+  </div>`;
+
+  html += `<a class="ops-link" href="dashboard.html">🛠️ View the full technical / operations dashboard →</a>`;
+
+  document.getElementById("app").innerHTML = html;
+
+  renderDayStrip(dailyRows, pointId);
+  renderTempChart(pointId, false);
+  document.getElementById("showModelsToggle").addEventListener("change", (e) => renderTempChart(pointId, e.target.checked));
+  renderTrustBars(point.zone);
+  renderMiniMap(pointId);
+}
+
+function renderDayStrip(dailyRows, pointId) {
+  const strip = document.getElementById("dayStrip");
+  strip.innerHTML = dailyRows.slice(0, 7).map((r, i) => {
+    const wx = weatherPhrase(r);
+    const d = new Date(r.rain_day);
+    const label = i === 0 ? "Today" : d.toLocaleDateString(undefined, { weekday: "short" });
+    return `<div class="daycard ${i===0?'active':''}" data-day="${r.rain_day}">
+      <div class="d">${label}</div>
+      <div class="e">${wx.emoji}</div>
+      <div class="hi">${Math.round(r.temp_day_max_blend)}°</div>
+      <div class="lo">${(r.precip_day_sum_blend||0).toFixed(0)}mm rain</div>
+    </div>`;
+  }).join("");
+}
+
+function renderTrustBars(zone) {
+  const w24 = DATA.weights.filter(r => r.zone === zone && r.variable === "temperature_2m" && r.lead_hours === 24);
+  const container = document.getElementById("trustBars");
+  if (!w24.length) { container.innerHTML = `<p class="hint">Not enough data yet for this area.</p>`; return; }
+  container.innerHTML = w24.sort((a,b) => b.weight - a.weight).map(r => {
+    const pct = Math.round(r.weight * 100);
+    return `<div class="trust-row">
+      <div class="trust-label">${MODEL_LABEL[r.model] || r.model}</div>
+      <div class="trust-track"><div class="trust-fill" style="width:${pct}%; background:${MODEL_COLOR[r.model] || '#999'}"></div></div>
+      <div class="trust-pct">${pct}%</div>
+    </div>`;
+  }).join("") + `<p class="hint" style="margin-top:.6rem">Trust is based on how accurate each model has historically been in this region.</p>`;
+}
+
+function renderTempChart(pointId, withModels) {
+  const rows = DATA.blend.filter(r => r.point_id === pointId).sort((a,b) => a.lead_hours - b.lead_hours).slice(0, 72);
+  if (!rows.length) return;
+  const labels = rows.map(r => `${r.lead_hours}h`);
+  const datasets = [{ label: "Forecast", data: rows.map(r => r.temperature_2m_blend), color: "#2f8fc0", width: 3, showPoints: false }];
+  if (withModels) {
+    const modelKeys = Object.keys(rows[0]).filter(k => k.startsWith("temperature_2m_") && !k.endsWith("_blend") && !k.endsWith("_equal_mean"));
+    modelKeys.forEach(mk => {
+      const model = mk.slice("temperature_2m_".length);
+      datasets.push({ label: MODEL_LABEL[model] || model, data: rows.map(r => r[mk]), color: MODEL_COLOR[model] || "#999", width: 1.3, dashed: true });
+    });
+  }
+  drawLineChart(document.getElementById("tempChart"), { labels, datasets });
+}
+
+function renderMiniMap(selectedId) {
+  const svg = document.getElementById("miniMap");
+  const project = (lat, lon) => [(lon - 68) / (98 - 68) * 760 + 30, (38 - lat) / (38 - 6) * 500 + 30];
+  const shapes = POINTS.map(p => {
+    const [x, y] = project(p.lat, p.lon);
+    const isSel = p.point_id === selectedId;
+    const color = isSel ? "var(--coral)" : "var(--sky)";
+    const r = isSel ? 7 : 4.5;
+    return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${r}" fill="${color}" fill-opacity="0.85" stroke="#fff" stroke-width="1" data-id="${p.point_id}"><title>${p.name}</title></circle>`;
+  }).join("");
+  svg.innerHTML = shapes;
+  svg.querySelectorAll("circle").forEach(c => {
+    c.addEventListener("click", () => {
+      document.getElementById("searchInput").value = "";
+      selectPoint(c.dataset.id);
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+  });
+}
+
+/* ---------- tiny self-contained SVG line chart (no external deps) ---------- */
+function drawLineChart(svgEl, { labels, datasets, yMin, yMax }) {
+  const W = svgEl.clientWidth || 500, H = svgEl.clientHeight || 220;
+  const padL = 38, padR = 12, padT = 26, padB = 26;
+  const plotW = W - padL - padR, plotH = H - padT - padB;
+  const allVals = datasets.flatMap(d => d.data.filter(v => v !== null && v !== undefined && !isNaN(v)));
+  const dataMin = yMin !== undefined ? yMin : Math.min(...allVals);
+  const dataMax = yMax !== undefined ? yMax : Math.max(...allVals);
+  const range = (dataMax - dataMin) || 1, pad = range * 0.15;
+  const lo = yMin !== undefined ? yMin : dataMin - pad, hi = yMax !== undefined ? yMax : dataMax + pad;
+  const xStep = labels.length > 1 ? plotW / (labels.length - 1) : plotW;
+  const xAt = i => padL + i * xStep, yAt = v => padT + plotH - ((v - lo) / (hi - lo)) * plotH;
+
+  let svg = "";
+  for (let t = 0; t <= 4; t++) {
+    const v = lo + (hi - lo) * (t / 4), y = yAt(v);
+    svg += `<line x1="${padL}" y1="${y.toFixed(1)}" x2="${W-padR}" y2="${y.toFixed(1)}" stroke="#eef3f6" stroke-width="1"/>`;
+    svg += `<text x="${padL-6}" y="${(y+3).toFixed(1)}" font-family="Inter" font-size="10" fill="#6b8494" text-anchor="end">${v.toFixed(0)}°</text>`;
+  }
+  const xStepLabel = Math.max(1, Math.ceil(labels.length / 8));
+  labels.forEach((lab, i) => {
+    if (i % xStepLabel !== 0 && i !== labels.length - 1) return;
+    svg += `<text x="${xAt(i).toFixed(1)}" y="${H-8}" font-family="Inter" font-size="10" fill="#6b8494" text-anchor="middle">${lab}</text>`;
+  });
+  datasets.forEach(ds => {
+    const pts = ds.data.map((v, i) => [xAt(i), (v==null||isNaN(v)) ? null : yAt(v)]);
+    let path = "", started = false;
+    pts.forEach(([x,y]) => { if (y===null) { started=false; return; } path += (started?"L":"M")+x.toFixed(1)+","+y.toFixed(1)+" "; started=true; });
+    svg += `<path d="${path}" fill="none" stroke="${ds.color}" stroke-width="${ds.width||2}" ${ds.dashed?'stroke-dasharray="4,3"':''} stroke-linejoin="round" stroke-linecap="round"/>`;
+  });
+  let lx = padL, legend = "";
+  datasets.forEach(ds => {
+    legend += `<line x1="${lx}" y1="10" x2="${lx+14}" y2="10" stroke="${ds.color}" stroke-width="2.5" ${ds.dashed?'stroke-dasharray="4,3"':''}/>`;
+    legend += `<text x="${lx+18}" y="14" font-family="Inter" font-size="10" fill="#1e3a4c">${ds.label}</text>`;
+    lx += ds.label.length * 6 + 30;
+  });
+  svgEl.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svgEl.innerHTML = legend + svg;
+}
+
+boot();
+</script>
+</body>
+</html>

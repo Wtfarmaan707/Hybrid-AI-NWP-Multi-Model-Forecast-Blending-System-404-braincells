@@ -1,0 +1,11 @@
+# Python environment, never commit this
+venv/
+__pycache__/
+*.pyc
+
+# Backup files created during development
+*.bak
+
+# Raw ingestion data can be large and is regenerable; keep processed
+# outputs (what the dashboards actually read) but skip raw snapshots.
+data/raw/*.csv
